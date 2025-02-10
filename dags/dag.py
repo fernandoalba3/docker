@@ -72,6 +72,7 @@ def ejecutar_generate_data():
     file_path = "/opt/airflow/data/messy_data.csv"
     df.to_csv(file_path, index=False)
 
+    # --------------------------------------------------------------------------------------------------------
     # OLLAMA_URL = "http://ollama:11434/api/generate"
     # MODEL = "llama3.1"  # Cambia por el modelo que prefieras (llama2, gemma, etc.)
     # NUM_ROWS = 5000  # Número de filas en el dataset
@@ -113,7 +114,7 @@ def ejecutar_generate_data():
     # else:
     #     print(f"Error en la generación: {response.status_code}")
     #     print(response.text)
-
+    # ---------------------------------------------------------------------------------------------------------
 # Función para ejecutar el script de limpieza de datos
 def ejecutar_clean_data():
     dataset = pd.read_csv('/opt/airflow/data/messy_data.csv')
