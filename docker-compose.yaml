@@ -306,3 +306,4 @@ services:
 volumes:
   postgres-db-volume:
   ollama_data:
+  open-webui:
