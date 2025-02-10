@@ -72,47 +72,47 @@ def ejecutar_generate_data():
     file_path = "/opt/airflow/data/messy_data.csv"
     df.to_csv(file_path, index=False)
 
-    OLLAMA_URL = "http://ollama:11434/api/generate"
-    MODEL = "llama3.1"  # Cambia por el modelo que prefieras (llama2, gemma, etc.)
-    NUM_ROWS = 5000  # Número de filas en el dataset
+    # OLLAMA_URL = "http://ollama:11434/api/generate"
+    # MODEL = "llama3.1"  # Cambia por el modelo que prefieras (llama2, gemma, etc.)
+    # NUM_ROWS = 5000  # Número de filas en el dataset
 
-    # Generar la solicitud a Ollama
-    prompt = f"Genera un conjunto de datos ficticio en formato CSV con 5000 registros. Cada fila debe contener las siguientes columnas: id (UUID), name (nombre aleatorio), email (basado en el nombre), age (edad entre 18 y 80 años) y signup_date (fecha de registro en formato YYYY-MM-DD dentro de los últimos 10 años). El resultado debe estar en texto plano como si fuera el contenido de un archivo CSV, comenzando con una línea de encabezado. No expliques tu proceso, solo genera los datos."
+    # # Generar la solicitud a Ollama
+    # prompt = f"Genera un conjunto de datos ficticio en formato CSV con 5000 registros. Cada fila debe contener las siguientes columnas: id (UUID), name (nombre aleatorio), email (basado en el nombre), age (edad entre 18 y 80 años) y signup_date (fecha de registro en formato YYYY-MM-DD dentro de los últimos 10 años). El resultado debe estar en texto plano como si fuera el contenido de un archivo CSV, comenzando con una línea de encabezado. No expliques tu proceso, solo genera los datos."
 
-    data = {
-        "model": MODEL,
-        "prompt": prompt,
-        "stream": False,
-        "options":{'num_predict': 8192}
-    }
+    # data = {
+    #     "model": MODEL,
+    #     "prompt": prompt,
+    #     "stream": False,
+    #     "options":{'num_predict': 8192}
+    # }
 
-    headers = {
-        "Content-Type": "application/json"
-    }
-    # Realizar la solicitud POST
-    response = requests.post(OLLAMA_URL, json=data,headers=headers)
+    # headers = {
+    #     "Content-Type": "application/json"
+    # }
+    # # Realizar la solicitud POST
+    # response = requests.post(OLLAMA_URL, json=data,headers=headers)
 
-    # Verificar si la respuesta es válida
-    if response.status_code == 200:
-      print(response.text)
-      # Obtener el contenido de la respuesta (en formato texto)
-      response_text = response.text.strip()
+    # # Verificar si la respuesta es válida
+    # if response.status_code == 200:
+    #   print(response.text)
+    #   # Obtener el contenido de la respuesta (en formato texto)
+    #   response_text = response.text.strip()
     
-      # Dividir la respuesta por líneas
-      response_lines = response_text.splitlines()
-      # Unir todas las partes de la respuesta en una sola cadena
-      full_response = "".join(
-            json.loads(line)["response"] for line in response_lines
-        )
+    #   # Dividir la respuesta por líneas
+    #   response_lines = response_text.splitlines()
+    #   # Unir todas las partes de la respuesta en una sola cadena
+    #   full_response = "".join(
+    #         json.loads(line)["response"] for line in response_lines
+    #     )
     
-      # Guardar el texto final en un archivo CSV
-      with open("/opt/airflow/data/prueba_data.csv", mode="w", newline="", encoding="utf-8") as file:
-        file.write(full_response)
+    #   # Guardar el texto final en un archivo CSV
+    #   with open("/opt/airflow/data/prueba_data.csv", mode="w", newline="", encoding="utf-8") as file:
+    #     file.write(full_response)
     
-      print("Archivo CSV generado exitosamente: messy_data_data.csv")
-    else:
-        print(f"Error en la generación: {response.status_code}")
-        print(response.text)
+    #   print("Archivo CSV generado exitosamente: messy_data_data.csv")
+    # else:
+    #     print(f"Error en la generación: {response.status_code}")
+    #     print(response.text)
 
 # Función para ejecutar el script de limpieza de datos
 def ejecutar_clean_data():
@@ -144,7 +144,7 @@ def ejecutar_load_to_postgres():
     # Obtener la conexión de Airflow
     hook = PostgresHook(postgres_conn_id="postgres_conn")
     engine = hook.get_sqlalchemy_engine()  # Recupera el SQLAlchemy engine
-
+    print(engine)
     dtype_mapping = {
     'id': UUID, 
     'name': VARCHAR(50),
