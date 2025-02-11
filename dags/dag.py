@@ -60,16 +60,16 @@ def ejecutar_generate_data():
         df.loc[null_indices, col] = None
 
     # Introducir errores tipográficos en name y email (2%)
-    def introduce_typo(text):
+    def introduce_err_tipo(text):
         if not text or len(text) < 3:
             return text
         pos = random.randint(0, len(text) - 2)
-        return text[:pos] + text[pos+1] + text[pos] + text[pos+2:]  # Intercambia dos letras
+        return text[:pos] + text[pos+1] + '/' + text[pos] + text[pos+2:]  # Intercambia dos letras y añade '/'
 
     for col in ["name", "email"]:
-        num_typos = int(len(df) * error_percentage)
-        typo_indices = np.random.choice(df.index, num_typos, replace=False)
-        df.loc[typo_indices, col] = df.loc[typo_indices, col].apply(introduce_typo)
+        num_err = int(len(df) * error_percentage)
+        indices = np.random.choice(df.index, num_err, replace=False)
+        df.loc[indices, col] = df.loc[indices, col].apply(introduce_err_tipo)
 
     # Guardar en CSV
     file_path = "/opt/airflow/data/messy_data.csv"
@@ -127,7 +127,7 @@ def ejecutar_clean_data():
 
     #Gestion valores nulos en el campo 'name', 'email' y 'signup_date'
     dataset['name'].fillna(value = 'Unknown', inplace=True) 
-    dataset['email'].fillna(value = 'unknown@example.com', inplace=True)
+    dataset['email'].fillna(value = 'invalid@example.com', inplace=True)
     dataset['signup_date'].fillna(value = datetime.today().date(), inplace = True)
 
     #Corrección de errores tipográficos
