@@ -89,6 +89,7 @@ x-airflow-common:
 services:
   ollama:
     image: ollama/ollama
+    container_name: ollama_container
     restart: unless-stopped
     ports:
       - "11434:11434"

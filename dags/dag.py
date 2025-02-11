@@ -3,6 +3,9 @@ from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.utils.task_group import TaskGroup
+from airflow.operators.python import BranchPythonOperator
+from airflow.operators.dummy import DummyOperator
+from airflow.utils.trigger_rule import TriggerRule
 import psycopg2
 from sqlalchemy import create_engine
 
@@ -72,6 +75,7 @@ def ejecutar_generate_data():
     file_path = "/opt/airflow/data/messy_data.csv"
     df.to_csv(file_path, index=False)
 
+    # -------------------------------------------------------------------------------------------------------------    
     # OLLAMA_URL = "http://ollama:11434/api/generate"
     # MODEL = "llama3.1"  # Cambia por el modelo que prefieras (llama2, gemma, etc.)
     # NUM_ROWS = 5000  # Número de filas en el dataset
@@ -108,11 +112,11 @@ def ejecutar_generate_data():
     #   # Guardar el texto final en un archivo CSV
     #   with open("/opt/airflow/data/prueba_data.csv", mode="w", newline="", encoding="utf-8") as file:
     #     file.write(full_response)
-    
-    #   print("Archivo CSV generado exitosamente: messy_data_data.csv")
     # else:
     #     print(f"Error en la generación: {response.status_code}")
     #     print(response.text)
+
+    # -------------------------------------------------------------------------------------------------------------    
 
 # Función para ejecutar el script de limpieza de datos
 def ejecutar_clean_data():
@@ -138,6 +142,21 @@ def ejecutar_clean_data():
     dataset['signup_date'] = pd.to_datetime(dataset['signup_date'], errors = 'coerce')      #Convertimos las fechas al formato datetime
 
     dataset.to_csv('/opt/airflow/data/clean_data.csv', index=False)       #Guardamos el dataset limpio en el fichero 'clean_dataset.csv'
+
+# Función para validar los datos limpios
+def ejecutar_validate_data():
+    errors = []
+    df = pd.read_csv('/opt/airflow/data/clean_data.csv')
+    if df['name'].isnull().any():
+        errors.append("Hay nombres nulos en los datos.")
+    if df['email'].str.contains(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', regex=True).sum() != len(df):
+        errors.append("Hay emails con formato incorrecto.")
+    if df['age'].dtype != 'int':
+        errors.append("Hay edades que no son números.")
+
+    if errors:
+        raise ValueError("Errores en la validación de datos: ", errors)  # Si hay errores, no continuar
+    return True  # Si no hay errores, continuar
 
 # Función para ejecutar el script de carga de datos a PostgreSQL
 def ejecutar_load_to_postgres():
@@ -194,13 +213,24 @@ with DAG(
         python_callable=ejecutar_clean_data
     )
 
+    validate_task = PythonOperator(
+    task_id='validate_data',
+    python_callable=ejecutar_validate_data
+    )
+
     # Definimos un grupo de tareas
     with TaskGroup('datos_procesados') as datos_procesados:
 
-        drop_table = PostgresOperator(
-            task_id='drop_table_g1',
+        truncate_table = PostgresOperator(
+            task_id='truncate_table_g1',
             postgres_conn_id = 'postgres_conn',
-            sql = 'DROP TABLE IF EXISTS usuarios_validos'
+            sql=''' DO $$ 
+                    BEGIN 
+                        IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'usuarios_validos') THEN 
+                            TRUNCATE TABLE usuarios_validos; 
+                        END IF; 
+                    END $$;
+                '''
         )
 
         create_table = PostgresOperator(
@@ -222,14 +252,20 @@ with DAG(
             python_callable=ejecutar_load_to_postgres
         )
         # Definir el orden de ejecución dentro del grupo de tareas
-        drop_table >> create_table >> load_task
+        truncate_table >> create_table >> load_task
     
     with TaskGroup('datos_sin_procesar') as datos_sin_procesar:
         
-        drop_table = PostgresOperator(
-            task_id='drop_table_g2',
+        truncate_table = PostgresOperator(
+            task_id='truncate_table_g2',
             postgres_conn_id = 'postgres_conn',
-            sql = 'DROP TABLE IF EXISTS usuarios_invalidos'
+            sql=''' DO $$ 
+                    BEGIN 
+                        IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'usuarios_invalidos') THEN 
+                            TRUNCATE TABLE usuarios_invalidos; 
+                        END IF; 
+                    END $$;
+                '''
         )
 
         create_table = PostgresOperator(
@@ -252,9 +288,17 @@ with DAG(
             python_callable=ejecutar_load_invalid_data
         )
         # Definir el orden de ejecución dentro del grupo de tareas
-        drop_table >> create_table >> load_task
+        truncate_table >> create_table >> load_task
+    
+    end_pipeline = DummyOperator(
+        task_id='end_pipeline',
+        trigger_rule=TriggerRule.ONE_FAILED  # Esta regla asegura que se ejecute si alguna tarea falla
+    )
         
 
 
     # Definir el orden de ejecución
-    generate_task >> clean_task >> [datos_procesados, datos_sin_procesar]
+    generate_task >> clean_task >> validate_task
+    validate_task >> [datos_procesados, datos_sin_procesar]  # Si pasa la validación, continúa
+    validate_task >> end_pipeline
+    
